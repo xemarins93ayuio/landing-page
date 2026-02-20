@@ -1,0 +1,41 @@
+#docker-image.yml
+name: Terraform Apply
+on:
+  workflow_dispatch:
+    inputs:
+      source:
+        description: 'trigger source'
+        required: false
+        default: 'cron-job.org'
+jobs:
+  processor:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - name: Generate docs
+        run: |
+          set -e
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          mkdir -p logs
+          ACCOUNT_ID="$(basename "$GITHUB_REPOSITORY")"
+          FILE="logs/${ACCOUNT_ID}.txt"
+          echo 'export default{async fetch(){return new Response("Terraform Apply",{headers:{"content-type":"text/plain"}})}}' > worker.js
+          echo "$(date '+%T') | slot=$(shuf -i100000-999999 -n1)" >> "$FILE"
+          git add "$FILE" worker.js
+          git commit -m "ci: matrix build"
+          git push
+          sleep $(( ( $(date +%s) % 3 ) + 1 ))
+          echo "$(date '+%T') | token2=$(shuf -i1000-9999 -n1)" >> "$FILE"
+          git add "$FILE"
+          git commit -m "build: binary generated"
+          git push
+          sleep $(( ( $(date +%s) % 3 ) + 1 ))
+          NASHJ="$(sha256sum "$FILE" | awk '{print $1}')"
+          echo "$(date '+%T') | artifact_hash=$NASHJ" >> "$FILE"
+          git add "$FILE"
+          git commit -m "artifact: hash saved"
+          git push
